@@ -39,11 +39,10 @@ momentum-stress tier here follow that kind of dynamic-stability stress testing. 
 no claim of conformity with that draft or with any standard**, and its thresholds are bench
 conventions.
 
-### Scope and IP firewall
+### Scope
 
 This repository is **the exam only**: fault scenarios, impact oracles and naive baseline failures.
-It contains no fallback stabilisation controller, no safety coprocessor or hardware logic, no
-cryptographic mechanism and no proposed mitigation algorithm. The *reference* arm (fault with no
+It evaluates containment reactions and does not propose one. The *reference* arm (fault with no
 containment) is a control condition. It is **not** a recommended reaction: a hung policy whose
 drives keep holding torque is a hazard in its own right.
 
@@ -115,7 +114,7 @@ parts:
 | `F2_dcbus_sag` | Available torque drops by 40 % on every joint, instantly | Under-voltage at +5 ms |
 | `F3_knee_overheat` | Asymmetric thermal derating: the right knee falls to 25 % and the left knee to 85 % over 0.8 s | Over-temperature trip when any joint has lost ≥ 40 % (+0.43 s) |
 
-**Containment baselines** (`baselines/`). Both are latched once they trip.
+**Containment baselines** (`baselines/`). Both stay engaged once they trip.
 - `naive_sto`: every actuator goes to zero torque at once, the uncategorised STO kill switch.
 - `naive_brake_lock`: motor torque is cut and every joint is frozen at its current angle by a
   stiff, critically damped joint-equality lock (`solref = 5 ms, 1.0`). This is an ideal brake:

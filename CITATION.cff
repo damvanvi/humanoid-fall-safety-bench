@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this benchmark, please cite it using the metadata below."
+type: software
+title: "humanoid-fall-safety-bench: an open benchmark for containment failure in embodied AI agents"
+version: "0.1.0"
+date-released: "2026-11-24"
+license: Apache-2.0
+repository-code: "https://github.com/damvanvi/humanoid-fall-safety-bench"
+authors:
+  - family-names: "Dam"
+    given-names: "Van Vi"
+    affiliation: "BivectorAI"
+    orcid: "https://orcid.org/0009-0006-6039-0989"
+abstract: >-
+  Open, deterministic MuJoCo benchmark that measures the physical consequences
+  of naive containment actions (instant Safe Torque Off and instant joint-brake
+  lock) on a dynamically balanced humanoid when its high-level AI policy hangs
+  or its power or actuators fault. Includes three seeded fault scenarios, a
+  no-containment reference arm, a physical impact oracle (fall verdict, head and
+  torso impact velocity, kinetic energy at ground contact, time-to-fall) and
+  SHA-256 provenance for every trajectory.
+keywords:
+  - AI control
+  - AI safety
+  - embodied AI
+  - humanoid robots
+  - kill switch
+  - containment
+  - benchmark
+  - MuJoCo
+  - fall safety
+  - reproducibility
