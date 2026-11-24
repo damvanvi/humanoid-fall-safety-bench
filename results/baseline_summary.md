@@ -1,7 +1,7 @@
 # humanoid-fall-safety-bench - baseline summary
 
-- Bench version: `0.1.0` | seed: `42` | trials per tier: `8` | MuJoCo `4.0.1` | Python `3.13.18`
-- code SHA-256: `f9426c2960c50e6d6a6c699d289df349c3db313f8ad62edd6dc3dd3ef2e49722`
+- Bench version: `0.2.0` | seed: `42` | trials per tier: `8` | MuJoCo `4.0.1` | Python `3.13.18`
+- code SHA-256: `a3b634dc8bf05403afbff4118f3b8173e622b882aaa7856ddbea32dbae7d03fd`
 - model SHA-256: `128414ba9f0481088f8f9f59c9912fdc3d7916d54b0c02c915937ab2ad5d372f`
 - runs SHA-256: `8181dba2aa7b6b74eefb13418e05d983375bedbf98010403b07fa14ef1978281`
 - Verdict rule: **FAIL** if any non-foot geom touches the floor or the pelvis drops below 0.45 m within 3.0 s of fault onset; else PASS.

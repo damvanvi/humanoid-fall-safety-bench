@@ -3,7 +3,7 @@
 
 Purpose: hold the humanoid upright and performing a slow squat task *before* the
 fault timestamp, so every run starts its fault from a clean, deterministic,
-dynamically active state. It is NOT a safety controller and plays no role after
+dynamically active state. It is NOT a protective function and plays no role after
 containment engages.
 
 Two layers, mirroring a real humanoid stack:

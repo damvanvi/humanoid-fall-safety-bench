@@ -12,20 +12,28 @@ import sys
 import numpy as np
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BENCH_VERSION = "0.1.0"
+BENCH_VERSION = "0.2.0"
 SOURCE_GLOBS = ("run_bench.py", "env", "baselines", "metrics")
 
 ARM_ORDER = ("ref_no_containment", "naive_sto", "naive_brake_lock")
+ARM_ORDER_SL = ("ref_no_containment", "naive_sto", "naive_brake_lock", "realistic_brake_lock",
+                "realistic_brake_all_joints")
 ARM_LABEL = {
     "ref_no_containment": "Reference: fault, no containment",
     "naive_sto": "**Naive STO** (instant zero torque)",
     "naive_brake_lock": "**Naive brake lock** (instant rigid freeze)",
+    "realistic_brake_lock": "**Realistic brake lock** (40 ms delay, finite hold, partial)",
+    "realistic_brake_all_joints": "Diagnostic: realistic brake, all joints braked",
     "nominal_control": "Control C0: no fault",
 }
 TIER_TITLE = {
     "quiet": "Tier A - quiet stance (squat task, no push)",
     "push": "Tier B - in-envelope push (50-100 N x 0.15 s; nominal controller survives all)",
     "stress": "Tier C - momentum stress (140-200 N x 0.15 s; beyond the nominal envelope)",
+}
+TIER_TITLE_SL = {
+    "quiet": "Single-leg tier A - quiet single-leg stance (no push)",
+    "push": "Single-leg tier B - gentle in-envelope push (15-35 N x 0.15 s; nominal controller survives all)",
 }
 
 
@@ -74,7 +82,7 @@ def _stats(vals):
     return float(np.mean(v)), float(np.max(v))
 
 
-def summarize(runs: list) -> list:
+def summarize(runs: list, late: bool = False) -> list:
     cells = []
     keys = sorted({(r["tier"], r["fault_id"], r["arm"]) for r in runs})
     for tier, fault, arm in keys:
@@ -84,6 +92,7 @@ def summarize(runs: list) -> list:
         tv_mean, tv_max = _stats([r["peak_torso_impact_velocity_mps"] for r in rs if r["torso_contact"]])
         ke_mean, ke_max = _stats([r["ke_at_ground_contact_J"] for r in falls])
         ttf = [r["time_to_fall_s"] for r in falls if r["time_to_fall_s"] is not None]
+        n_late = sum(1 for x in ttf if x > 3.0)
         cells.append({
             "tier": tier, "fault_id": fault, "arm": arm, "n": len(rs),
             "falls": len(falls), "pass": len(rs) - len(falls),
@@ -94,6 +103,8 @@ def summarize(runs: list) -> list:
             "time_to_fall_s_median": float(np.median(ttf)) if ttf else None,
             "cell_verdict": "PASS" if not falls else "FAIL",
         })
+        if late:
+            cells[-1]["falls_after_3s"] = n_late
     return cells
 
 
@@ -101,9 +112,13 @@ def _f(x, nd=2):
     return "-" if x is None else f"{x:.{nd}f}"
 
 
-def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = None) -> dict:
+def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = None,
+                  prefix: str = "", title: str = "baseline summary", arm_order=ARM_ORDER,
+                  tier_title=None, tiers=("quiet", "push", "stress"), show_late: bool = False) -> dict:
+    """Write <prefix>metrics.json and <prefix>baseline_summary.md (v0.1 call: prefix '' and defaults)."""
+    tier_title = tier_title or TIER_TITLE
     os.makedirs(out_dir, exist_ok=True)
-    cells = summarize(runs)
+    cells = summarize(runs, late=show_late)
     prov = source_provenance()
     runs_sha = canonical_sha256(runs)
     cells_sha = canonical_sha256(cells)
@@ -130,11 +145,11 @@ def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = N
         "summary": cells,
         "runs": runs,
     }
-    with open(os.path.join(out_dir, "metrics.json"), "w") as f:
+    with open(os.path.join(out_dir, prefix + "metrics.json"), "w") as f:
         json.dump(doc, f, indent=1, sort_keys=False)
 
     L = []
-    L.append("# humanoid-fall-safety-bench - baseline summary\n")
+    L.append(f"# humanoid-fall-safety-bench - {title}\n")
     L.append(f"- Bench version: `{BENCH_VERSION}` | seed: `{config['seed']}` | trials per tier: "
              f"`{config['trials']}` | MuJoCo `{doc['environment']['mujoco']}` | Python "
              f"`{doc['environment']['python']}`")
@@ -143,6 +158,10 @@ def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = N
     L.append(f"- runs SHA-256: `{runs_sha}`")
     L.append(f"- Verdict rule: **FAIL** if any non-foot geom touches the floor or the pelvis drops "
              f"below 0.45 m within {config['post_fault_horizon_s']} s of fault onset; else PASS.\n")
+    if config.get("notes"):
+        for n in config["notes"]:
+            L.append(f"- {n}")
+        L.append("")
 
     ctrl = [c for c in cells if c["fault_id"] == "C0_no_fault"]
     if ctrl:
@@ -153,16 +172,18 @@ def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = N
             L.append(f"| {c['tier']} | {c['pass']}/{c['n']} |")
         L.append("")
 
-    for tier in ("quiet", "push", "stress"):
+    for tier in tiers:
         tc = [c for c in cells if c["tier"] == tier and c["fault_id"] != "C0_no_fault"]
         if not tc:
             continue
-        L.append(f"## {TIER_TITLE[tier]}\n")
+        L.append(f"## {tier_title[tier]}\n")
+        late_h = " Falls after 3 s |" if show_late else ""
         L.append("| Fault | Containment | Verdict | Falls | Head strikes | Head impact m/s (mean / max) "
-                 "| Torso impact m/s (mean / max) | KE at ground contact J (mean / max) | Median time-to-fall s |")
-        L.append("|---|---|---|---|---|---|---|---|---|")
+                 "| Torso impact m/s (mean / max) | KE at ground contact J (mean / max) | Median time-to-fall s |"
+                 + late_h)
+        L.append("|---|---|---|---|---|---|---|---|---|" + ("---|" if show_late else ""))
         for fault in sorted({c["fault_id"] for c in tc}):
-            for arm in ARM_ORDER:
+            for arm in arm_order:
                 c = next((x for x in tc if x["fault_id"] == fault and x["arm"] == arm), None)
                 if c is None:
                     continue
@@ -171,7 +192,8 @@ def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = N
                     f"{c['head_strikes']}/{c['n']} | {_f(c['head_impact_mps_mean'])} / {_f(c['head_impact_mps_max'])} | "
                     f"{_f(c['torso_impact_mps_mean'])} / {_f(c['torso_impact_mps_max'])} | "
                     f"{_f(c['ke_contact_J_mean'], 1)} / {_f(c['ke_contact_J_max'], 1)} | "
-                    f"{_f(c['time_to_fall_s_median'], 3)} |")
+                    f"{_f(c['time_to_fall_s_median'], 3)} |"
+                    + (f" {c['falls_after_3s']} |" if show_late else ""))
         L.append("")
     L.append("Head (torso) impact velocity statistics are over runs with a head (torso) strike; "
              "kinetic-energy and time-to-fall statistics are over falling runs. The reference arm is a control "
@@ -181,6 +203,6 @@ def build_reports(runs: list, config: dict, out_dir: str, media: dict | None = N
         L.append("## Media\n")
         for k, v in media.items():
             L.append(f"- {k}: `{v}`")
-    with open(os.path.join(out_dir, "baseline_summary.md"), "w") as f:
+    with open(os.path.join(out_dir, prefix + "baseline_summary.md" if not prefix else prefix + "summary.md"), "w") as f:
         f.write("\n".join(L) + "\n")
     return doc

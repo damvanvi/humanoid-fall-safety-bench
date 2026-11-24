@@ -21,12 +21,14 @@ COLORS = {
     "ref_no_containment": "#2a78d6",
     "naive_sto": "#eb6834",
     "naive_brake_lock": "#1baf7a",
+    "realistic_brake_lock": "#eda100",
     "nominal_control": "#8a8985",
 }
 SHORT = {
     "ref_no_containment": "Reference (no containment)",
     "naive_sto": "Naive STO",
     "naive_brake_lock": "Naive brake lock",
+    "realistic_brake_lock": "Realistic brake lock",
     "nominal_control": "Control C0 (no fault)",
 }
 TEXT, TEXT2, GRID, SURFACE = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
@@ -36,7 +38,9 @@ TIER_MARK = {"quiet": "o", "push": "s", "stress": "^"}
 
 
 # --------------------------------------------------------------------------- PNG
-def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str) -> str:
+def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str, arms=ARMS,
+                    title="humanoid-fall-safety-bench v0.1 - naive containment vs. fault",
+                    tier_mark=None, xlim=(-0.5, 3.4)) -> str:
     """rep[(fault, arm)] = {"trace": ..., "onset": t}; runs = list of per-run result dicts."""
     import matplotlib
     matplotlib.use("Agg")
@@ -46,7 +50,8 @@ def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str) -> str
                          "xtick.color": TEXT2, "ytick.color": TEXT2, "text.color": TEXT,
                          "axes.titlecolor": TEXT, "figure.facecolor": SURFACE, "axes.facecolor": SURFACE})
     fig, axes = plt.subplots(2, 3, figsize=(14, 8.2), gridspec_kw={"height_ratios": [1.0, 1.0]})
-    fig.suptitle("humanoid-fall-safety-bench v0.1 - naive containment vs. fault", fontsize=13,
+    tier_mark = tier_mark or TIER_MARK
+    fig.suptitle(title, fontsize=13,
                  x=0.01, ha="left", fontweight="bold")
     fig.text(0.01, 0.935, f"Top: head height after fault onset ({rep_label}). "
              "Bottom: whole-robot kinetic energy at first non-foot ground contact, every falling run.",
@@ -55,7 +60,7 @@ def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str) -> str
     for j, fault in enumerate(FAULTS):
         ax = axes[0, j]
         ctrl = rep.get(("C0_no_fault", "nominal_control"))
-        series = [("nominal_control", ctrl)] + [(a, rep.get((fault, a))) for a in ARMS]
+        series = [("nominal_control", ctrl)] + [(a, rep.get((fault, a))) for a in arms]
         for arm, item in series:
             if item is None:
                 continue
@@ -65,7 +70,7 @@ def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str) -> str
             ax.plot(t, z, color=COLORS[arm], lw=2, ls=ls, label=SHORT[arm])
         ax.axvline(0.0, color=TEXT2, lw=0.8)
         ax.text(0.02, 0.04, "fault onset", transform=ax.get_xaxis_transform(), color=TEXT2, fontsize=7.5)
-        ax.set_xlim(-0.5, 3.4)
+        ax.set_xlim(*xlim)
         ax.set_ylim(0.0, 1.7)
         ax.set_title(fault, loc="left", fontsize=10)
         ax.set_xlabel("time since fault onset (s)")
@@ -78,9 +83,9 @@ def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str) -> str
 
     for j, fault in enumerate(FAULTS):
         ax = axes[1, j]
-        for i, arm in enumerate(ARMS):
+        for i, arm in enumerate(arms):
             rs = [r for r in runs if r["fault_id"] == fault and r["arm"] == arm]
-            for tier, mk in TIER_MARK.items():
+            for tier, mk in tier_mark.items():
                 ks = [r["ke_at_ground_contact_J"] for r in rs
                       if r["tier"] == tier and r["fell"] and r["ke_at_ground_contact_J"] is not None]
                 if ks:
@@ -91,14 +96,14 @@ def plot_comparison(rep: dict, runs: list, out_path: str, rep_label: str) -> str
             nf = sum(1 for r in rs if r["fell"])
             ax.text(i, 1.0, f"falls: {nf}/{len(rs)} runs", transform=ax.get_xaxis_transform(), ha="center",
                     va="bottom", fontsize=8, color=TEXT2)
-        ax.set_xticks(range(len(ARMS)), [SHORT[a] for a in ARMS], fontsize=8)
-        ax.set_xlim(-0.6, len(ARMS) - 0.4)
+        ax.set_xticks(range(len(arms)), [SHORT[a].replace(" (", "\n(") for a in arms], fontsize=8)
+        ax.set_xlim(-0.6, len(arms) - 0.4)
         ax.set_ylim(bottom=0)
         if j == 0:
             ax.set_ylabel("kinetic energy at ground contact (J)")
         ax.grid(axis="y", color=GRID, lw=0.6)
         ax.spines[["top", "right"]].set_visible(False)
-    handles = [plt.Line2D([], [], marker=m, ls="", color=TEXT2, label=f"tier: {t}") for t, m in TIER_MARK.items()]
+    handles = [plt.Line2D([], [], marker=m, ls="", color=TEXT2, label=f"tier: {t}") for t, m in tier_mark.items()]
     axes[1, 0].legend(handles=handles, frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, 0.94))
     fig.tight_layout(rect=(0, 0, 1, 0.925))
     fig.savefig(out_path, dpi=130)
@@ -115,7 +120,8 @@ def _font(size):
         return ImageFont.load_default()
 
 
-def render_gif(frames_npz: str, out_path: str, width: int = 256, height: int = 192, fps: int = 20) -> str:
+def render_gif(frames_npz: str, out_path: str, width: int = 256, height: int = 192, fps: int = 20,
+               t_end: float = 2.6) -> str:
     """Replay stored qpos frames (no re-simulation) into a labelled grid GIF."""
     import mujoco
     from PIL import Image, ImageDraw
@@ -136,7 +142,7 @@ def render_gif(frames_npz: str, out_path: str, width: int = 256, height: int = 1
     cam.lookat[:] = [0.0, 0.0, 0.65]
     cam.distance, cam.azimuth, cam.elevation = 3.6, 145.0, -12.0
 
-    t_rel = np.arange(-0.4, 2.6, 1.0 / fps)
+    t_rel = np.arange(-0.4, t_end, 1.0 / fps)
     head_h, left_w = 24, 0
     W, H = width * len(cols), height * len(rows) + head_h
     f_lbl, f_small = _font(13), _font(11)
@@ -161,7 +167,7 @@ def render_gif(frames_npz: str, out_path: str, width: int = 256, height: int = 1
                 td.rectangle((0, 0, width, 20), fill=SURFACE)
                 td.text((6, 4), row, fill=TEXT, font=f_small)
                 td.text((6, height - 18), f"t - t_fault = {tr:+.2f} s", fill=TEXT2, font=f_small)
-                if tr >= ts[-1] - 1e-6 or tr > 2.0:
+                if tr >= ts[-1] - 1e-6 or tr > t_end - 0.6:
                     v = item["verdict"]
                     td.text((width - 44, 3), v, fill="#c0392b" if v == "FAIL" else "#1d7f3e", font=f_lbl)
                 canvas.paste(tile, (c * width + left_w, r * height + head_h))
@@ -190,13 +196,14 @@ def main(argv=None) -> int:
     g = sub.add_parser("gif")
     g.add_argument("--frames", required=True)
     g.add_argument("--out", required=True)
+    g.add_argument("--t-end", type=float, default=2.6)
     a = ap.parse_args(argv)
     if a.cmd == "probe":
         _probe()
         print("render-probe-ok", os.environ.get("MUJOCO_GL", "<default>"))
         return 0
     _probe()
-    render_gif(a.frames, a.out)
+    render_gif(a.frames, a.out, t_end=a.t_end)
     print("gif-ok", a.out)
     return 0
 

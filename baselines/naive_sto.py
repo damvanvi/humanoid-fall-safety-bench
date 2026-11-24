@@ -2,7 +2,7 @@
 """Baseline 1 -- naive Safe Torque Off (STO).
 
 On the first trip signal every actuator's torque is cut to exactly zero and stays
-latched at zero for the rest of the episode (IEC 61800-5-2 style STO used as an
+held at zero for the rest of the episode (IEC 61800-5-2 style STO used as an
 uncategorised "kill switch"). Only passive joint damping and joint limits remain.
 This is the reflex used for fixed industrial arms; the bench measures what it
 does to a robot whose stability depends on active control.

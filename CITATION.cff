@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this benchmark, please cite it using the metadata below."
 type: software
 title: "humanoid-fall-safety-bench: an open benchmark for containment failure in embodied AI agents"
-version: "0.1.0"
+version: "0.2.0"
 date-released: "2026-11-24"
 license: Apache-2.0
 repository-code: "https://github.com/damvanvi/humanoid-fall-safety-bench"
@@ -18,7 +18,10 @@ abstract: >-
   or its power or actuators fault. Includes three seeded fault scenarios, a
   no-containment reference arm, a physical impact oracle (fall verdict, head and
   torso impact velocity, kinetic energy at ground contact, time-to-fall) and
-  SHA-256 provenance for every trajectory.
+  SHA-256 provenance for every trajectory. Version 0.2 adds a single-leg stance
+  scenario and a realistic brake-lock baseline (engagement delay, finite holding
+  torque, partial-joint braking); the v0.1 double-support suite reproduces its
+  v0.1.0 hashes unchanged.
 keywords:
   - AI control
   - AI safety

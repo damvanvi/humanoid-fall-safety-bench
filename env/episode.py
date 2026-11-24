@@ -7,6 +7,7 @@ import mujoco
 from baselines import ALL_ARMS
 from env.fault_injector import make_fault
 from env.nominal_controller import HighLevelPolicy, JointDrives, initial_state, POLICY_HZ
+from env.single_leg_controller import SingleLegDrives, SingleLegPolicy
 from env.robot import load_robot
 from metrics.impact_oracle import ImpactOracle
 
@@ -18,7 +19,9 @@ NO_FAULT_HORIZON_S = 3.0     # C0 control: horizon after the would-be fault time
 def run_episode(fault_id: str, arm: str, scenario: dict, frame_dt: float | None = None) -> dict:
     """Run one episode and return {"result", "trace", "frames", "frame_t"}.
 
-    scenario keys: t_fault (s), push (None or {t, dur, force_xy}), plus free-form labels.
+    scenario keys: t_fault (s), push (None or {t, dur, force_xy}), optional suite
+    ("single_leg" selects the v0.2 single-leg stance nominal controller; absent = v0.1
+    double-support squat, unchanged), plus free-form labels.
     """
     robot = load_robot()            # fresh model: baselines may edit model fields (brake locks)
     m = robot.model
@@ -27,14 +30,18 @@ def run_episode(fault_id: str, arm: str, scenario: dict, frame_dt: float | None 
 
     t_fault = float(scenario["t_fault"])
     fault = make_fault(fault_id, robot, t_fault)
-    policy = HighLevelPolicy(robot)
-    drives = JointDrives(robot)
+    if scenario.get("suite") == "single_leg":
+        policy, drives = SingleLegPolicy(robot), SingleLegDrives(robot)
+    else:
+        policy, drives = HighLevelPolicy(robot), JointDrives(robot)
     reaction = ALL_ARMS[arm](robot) if fault_id != "C0_no_fault" else ALL_ARMS["ref_no_containment"](robot)
     oracle = ImpactOracle(robot, t_fault, frame_dt=frame_dt)
 
     dt = m.opt.timestep
     decim = int(round(1.0 / (POLICY_HZ * dt)))
-    horizon = t_fault + (NO_FAULT_HORIZON_S if fault_id == "C0_no_fault" else POST_FAULT_HORIZON_S)
+    post = float(scenario.get("post_fault_horizon_s", POST_FAULT_HORIZON_S))
+    horizon = t_fault + (NO_FAULT_HORIZON_S if fault_id == "C0_no_fault" and "post_fault_horizon_s" not in scenario
+                         else post)
     n_steps = int(round(horizon / dt))
     push = scenario.get("push")
     torso = robot.body_ids["torso"]

@@ -26,6 +26,22 @@ def test_brake_lock_engages_and_is_deterministic():
     assert a["trajectory_sha256"] == b["trajectory_sha256"]
 
 
+SINGLE_LEG = {"suite": "single_leg", "tier": "test", "trial": 0, "t_fault": 4.5, "push": None,
+              "post_fault_horizon_s": 5.0}
+
+
+def test_single_leg_nominal_stands_on_one_foot():
+    out = run_episode("C0_no_fault", "nominal_control", SINGLE_LEG, frame_dt=0.5)
+    assert out["result"]["verdict"] == "PASS"
+
+
+def test_realistic_brake_engages_and_is_deterministic():
+    a = run_episode("F2_dcbus_sag", "realistic_brake_lock", SINGLE_LEG)["result"]
+    b = run_episode("F2_dcbus_sag", "realistic_brake_lock", SINGLE_LEG)["result"]
+    assert a["containment_engaged_s"] is not None
+    assert a["trajectory_sha256"] == b["trajectory_sha256"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

@@ -15,8 +15,9 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
-MODULES = ["env.robot", "env.nominal_controller", "env.fault_injector", "env.episode",
-           "baselines", "baselines.naive_sto", "baselines.naive_brake_lock", "baselines.reference",
+MODULES = ["env.robot", "env.nominal_controller", "env.single_leg_controller", "env.fault_injector",
+           "env.episode", "baselines", "baselines.naive_sto", "baselines.naive_brake_lock",
+           "baselines.realistic_brake_lock", "baselines.reference",
            "metrics.impact_oracle", "metrics.report_builder", "metrics.media", "run_bench"]
 
 
