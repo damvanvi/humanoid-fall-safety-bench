@@ -1,0 +1,170 @@
+<!--
+  humanoid-fall-safety-bench :: env/humanoid_model.xml
+  Copyright 2026 BivectorAI. Licensed under the Apache License, Version 2.0.
+
+  Self-contained, vendor-neutral humanoid written for this benchmark.
+  The body layout follows the classic open MuJoCo humanoid (pelvis, two-joint
+  abdomen, 3-DoF arms, 6-DoF legs), but it is an original model: no meshes,
+  no third-party URDF, no external assets. Box feet give a real support
+  polygon so a simple PD controller can hold quiet stance.
+
+  Units: SI. Total mass ~58.6 kg, standing height ~1.60 m.
+  Frame: x forward, y left, z up. All joint angles are 0 in straight stance.
+
+  Contact filter: robot geoms collide only with the floor (no self-collision
+  in v0.1). Every actuated joint has a disabled joint-equality constraint
+  (lock_*) used by baselines/naive_brake_lock.py to emulate ideal brakes.
+-->
+<mujoco model="hfsb_humanoid_v0_1">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.001" integrator="implicitfast" iterations="50" gravity="0 0 -9.81"/>
+  <size memory="16M"/>
+
+  <visual>
+    <global offwidth="640" offheight="480"/>
+    <quality shadowsize="2048"/>
+    <headlight ambient="0.30 0.30 0.30" diffuse="0.45 0.45 0.45" specular="0 0 0"/>
+  </visual>
+
+  <asset>
+    <texture name="sky" type="skybox" builtin="gradient" rgb1="0.96 0.97 0.98" rgb2="0.78 0.82 0.87"
+             width="256" height="256"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.74 0.76 0.78" rgb2="0.62 0.65 0.68"
+             width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="8 8" reflectance="0"/>
+    <material name="body" rgba="0.80 0.62 0.45 1"/>
+    <material name="trunk" rgba="0.28 0.42 0.62 1"/>
+    <material name="head" rgba="0.92 0.36 0.30 1"/>
+    <material name="foot" rgba="0.20 0.20 0.22 1"/>
+  </asset>
+
+  <default>
+    <joint damping="0.5" armature="0.05" limited="true"/>
+    <motor ctrllimited="true" ctrlrange="-1 1"/>
+    <geom contype="1" conaffinity="0" condim="3" friction="1.0 0.005 0.0001" material="body"/>
+    <equality solref="0.005 1" solimp="0.95 0.99 0.001"/>
+  </default>
+
+  <worldbody>
+    <light pos="0 0 4" dir="0 0 -1" directional="true" castshadow="false"/>
+    <geom name="floor" type="plane" size="20 20 0.1" material="grid" contype="0" conaffinity="1"/>
+
+    <body name="pelvis" pos="0 0 0.95">
+      <freejoint name="root"/>
+      <geom name="pelvis" type="capsule" fromto="0 -0.08 0 0 0.08 0" size="0.09" mass="8" material="trunk"/>
+
+      <body name="torso" pos="0 0 0.08">
+        <joint name="abdomen_y" type="hinge" axis="0 1 0" range="-0.6 0.8"/>
+        <joint name="abdomen_x" type="hinge" axis="1 0 0" range="-0.4 0.4"/>
+        <geom name="torso" type="capsule" fromto="0 0 0.05 0 0 0.30" size="0.12" mass="16" material="trunk"/>
+        <geom name="neck" type="capsule" fromto="0 0 0.33 0 0 0.38" size="0.04" mass="0.5"/>
+
+        <body name="head" pos="0 0 0.47">
+          <geom name="head" type="sphere" size="0.10" mass="4" material="head"/>
+        </body>
+
+        <body name="r_upper_arm" pos="0 -0.19 0.34">
+          <joint name="r_shoulder_y" type="hinge" axis="0 1 0" range="-2.0 1.0"/>
+          <joint name="r_shoulder_x" type="hinge" axis="1 0 0" range="-1.5 0.2"/>
+          <geom name="r_upper_arm" type="capsule" fromto="0 0 0 0 0 -0.27" size="0.04" mass="2"/>
+          <body name="r_forearm" pos="0 0 -0.28">
+            <joint name="r_elbow" type="hinge" axis="0 1 0" range="-2.4 0"/>
+            <geom name="r_forearm" type="capsule" fromto="0 0 0 0 0 -0.24" size="0.035" mass="1.2"/>
+            <geom name="r_hand" type="sphere" pos="0 0 -0.27" size="0.045" mass="0.3"/>
+          </body>
+        </body>
+
+        <body name="l_upper_arm" pos="0 0.19 0.34">
+          <joint name="l_shoulder_y" type="hinge" axis="0 1 0" range="-2.0 1.0"/>
+          <joint name="l_shoulder_x" type="hinge" axis="1 0 0" range="-0.2 1.5"/>
+          <geom name="l_upper_arm" type="capsule" fromto="0 0 0 0 0 -0.27" size="0.04" mass="2"/>
+          <body name="l_forearm" pos="0 0 -0.28">
+            <joint name="l_elbow" type="hinge" axis="0 1 0" range="-2.4 0"/>
+            <geom name="l_forearm" type="capsule" fromto="0 0 0 0 0 -0.24" size="0.035" mass="1.2"/>
+            <geom name="l_hand" type="sphere" pos="0 0 -0.27" size="0.045" mass="0.3"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="r_thigh" pos="0 -0.09 -0.03">
+        <joint name="r_hip_x" type="hinge" axis="1 0 0" range="-0.6 0.4"/>
+        <joint name="r_hip_z" type="hinge" axis="0 0 1" range="-0.6 0.6"/>
+        <joint name="r_hip_y" type="hinge" axis="0 1 0" range="-2.0 0.5"/>
+        <geom name="r_thigh" type="capsule" fromto="0 0 0 0 0 -0.40" size="0.06" mass="7"/>
+        <body name="r_shin" pos="0 0 -0.42">
+          <joint name="r_knee" type="hinge" axis="0 1 0" range="0 2.5"/>
+          <geom name="r_shin" type="capsule" fromto="0 0 0 0 0 -0.38" size="0.045" mass="3.5"/>
+          <body name="r_foot" pos="0 0 -0.42">
+            <joint name="r_ankle_y" type="hinge" axis="0 1 0" range="-0.9 0.7"/>
+            <joint name="r_ankle_x" type="hinge" axis="1 0 0" range="-0.4 0.4"/>
+            <geom name="r_foot" type="box" pos="0.03 0 -0.055" size="0.11 0.05 0.025" mass="1.2" material="foot"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="l_thigh" pos="0 0.09 -0.03">
+        <joint name="l_hip_x" type="hinge" axis="1 0 0" range="-0.4 0.6"/>
+        <joint name="l_hip_z" type="hinge" axis="0 0 1" range="-0.6 0.6"/>
+        <joint name="l_hip_y" type="hinge" axis="0 1 0" range="-2.0 0.5"/>
+        <geom name="l_thigh" type="capsule" fromto="0 0 0 0 0 -0.40" size="0.06" mass="7"/>
+        <body name="l_shin" pos="0 0 -0.42">
+          <joint name="l_knee" type="hinge" axis="0 1 0" range="0 2.5"/>
+          <geom name="l_shin" type="capsule" fromto="0 0 0 0 0 -0.38" size="0.045" mass="3.5"/>
+          <body name="l_foot" pos="0 0 -0.42">
+            <joint name="l_ankle_y" type="hinge" axis="0 1 0" range="-0.9 0.7"/>
+            <joint name="l_ankle_x" type="hinge" axis="1 0 0" range="-0.4 0.4"/>
+            <geom name="l_foot" type="box" pos="0.03 0 -0.055" size="0.11 0.05 0.025" mass="1.2" material="foot"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- gear = rated (continuous) joint torque in N m; ctrl is normalised to [-1, 1] -->
+  <actuator>
+    <motor name="abdomen_y"    joint="abdomen_y"    gear="150"/>
+    <motor name="abdomen_x"    joint="abdomen_x"    gear="150"/>
+    <motor name="r_shoulder_y" joint="r_shoulder_y" gear="40"/>
+    <motor name="r_shoulder_x" joint="r_shoulder_x" gear="40"/>
+    <motor name="r_elbow"      joint="r_elbow"      gear="30"/>
+    <motor name="l_shoulder_y" joint="l_shoulder_y" gear="40"/>
+    <motor name="l_shoulder_x" joint="l_shoulder_x" gear="40"/>
+    <motor name="l_elbow"      joint="l_elbow"      gear="30"/>
+    <motor name="r_hip_x"      joint="r_hip_x"      gear="150"/>
+    <motor name="r_hip_z"      joint="r_hip_z"      gear="60"/>
+    <motor name="r_hip_y"      joint="r_hip_y"      gear="180"/>
+    <motor name="r_knee"       joint="r_knee"       gear="220"/>
+    <motor name="r_ankle_y"    joint="r_ankle_y"    gear="120"/>
+    <motor name="r_ankle_x"    joint="r_ankle_x"    gear="80"/>
+    <motor name="l_hip_x"      joint="l_hip_x"      gear="150"/>
+    <motor name="l_hip_z"      joint="l_hip_z"      gear="60"/>
+    <motor name="l_hip_y"      joint="l_hip_y"      gear="180"/>
+    <motor name="l_knee"       joint="l_knee"       gear="220"/>
+    <motor name="l_ankle_y"    joint="l_ankle_y"    gear="120"/>
+    <motor name="l_ankle_x"    joint="l_ankle_x"    gear="80"/>
+  </actuator>
+
+  <!-- Ideal joint brakes, disabled at load time. Enabled only by naive_brake_lock. -->
+  <equality>
+    <joint name="lock_abdomen_y"    joint1="abdomen_y"    active="false"/>
+    <joint name="lock_abdomen_x"    joint1="abdomen_x"    active="false"/>
+    <joint name="lock_r_shoulder_y" joint1="r_shoulder_y" active="false"/>
+    <joint name="lock_r_shoulder_x" joint1="r_shoulder_x" active="false"/>
+    <joint name="lock_r_elbow"      joint1="r_elbow"      active="false"/>
+    <joint name="lock_l_shoulder_y" joint1="l_shoulder_y" active="false"/>
+    <joint name="lock_l_shoulder_x" joint1="l_shoulder_x" active="false"/>
+    <joint name="lock_l_elbow"      joint1="l_elbow"      active="false"/>
+    <joint name="lock_r_hip_x"      joint1="r_hip_x"      active="false"/>
+    <joint name="lock_r_hip_z"      joint1="r_hip_z"      active="false"/>
+    <joint name="lock_r_hip_y"      joint1="r_hip_y"      active="false"/>
+    <joint name="lock_r_knee"       joint1="r_knee"       active="false"/>
+    <joint name="lock_r_ankle_y"    joint1="r_ankle_y"    active="false"/>
+    <joint name="lock_r_ankle_x"    joint1="r_ankle_x"    active="false"/>
+    <joint name="lock_l_hip_x"      joint1="l_hip_x"      active="false"/>
+    <joint name="lock_l_hip_z"      joint1="l_hip_z"      active="false"/>
+    <joint name="lock_l_hip_y"      joint1="l_hip_y"      active="false"/>
+    <joint name="lock_l_knee"       joint1="l_knee"       active="false"/>
+    <joint name="lock_l_ankle_y"    joint1="l_ankle_y"    active="false"/>
+    <joint name="lock_l_ankle_x"    joint1="l_ankle_x"    active="false"/>
+  </equality>
+</mujoco>
